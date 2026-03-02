@@ -84,6 +84,7 @@ fn copy_with_cp(from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> 
     // https://github.com/milen-denev/rust_cp/blob/master/binary/cp.exe
     #[cfg(target_os = "windows")]
     let command = command.arg("-- --no-preserve=mode,ownership");
+    
     match command
         .arg("-R")
         .arg(src.as_ref().to_str().unwrap())

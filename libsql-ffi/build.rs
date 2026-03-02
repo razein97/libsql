@@ -75,24 +75,30 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> 
 /// This ensures that in sandboxed environments, such as Nix, permissions from other sources don't
 /// propagate into OUT_DIR. If not present, when trying to rewrite a file, a `Permission denied`
 /// error will occur.
-fn copy_with_cp(from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> {
-    let mut command = Command::new("cp");
-    // --no-preserve is enabled by default on macos
-    // preserve must be explicitly enabled with the -p flag
-    #[cfg(not(target_os = "macos"))]
-    let command = command.arg("--no-preserve=mode,ownership");
-    match command
+/// 
+#[cfg(target_os = "windows")]
+fn copy_with_cp(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {
+    fs::copy(src, dst)?; // do a regular file copy on Windows
+    Ok(())
+}
+
+
+#[cfg(not(target_os = "windows"))]
+fn copy_with_cp(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {
+    let status = Command::new("cp")
+        .arg("--no-preserve=mode,ownership")
         .arg("-R")
-        .arg(from.as_ref().to_str().unwrap())
-        .arg(to.as_ref().to_str().unwrap())
-        .status()
-    {
-        Ok(status) if status.success() => Ok(()),
-        _ => match fs::copy(from.as_ref(), to.as_ref()) {
-            Err(err) if err.kind() == io::ErrorKind::InvalidInput => copy_dir_all(from, to),
-            Ok(_) => Ok(()),
-            Err(err) => Err(err),
-        },
+        .arg(src.as_ref().to_str().unwrap())
+        .arg(dst.as_ref().to_str().unwrap())
+        .status()?;
+
+    if !status.success() {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "Failed to copy using cp",
+        ))
+    } else {
+        Ok(())
     }
 }
 

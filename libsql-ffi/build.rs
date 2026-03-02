@@ -39,13 +39,15 @@ fn main() {
     };
 
     let dir = env!("CARGO_MANIFEST_DIR");
-    [#cfg(target_os="windows")]
- Command::new("xcopy")
-     .arg("/S")
-     .arg(format!("{dir}\\{bindgen_rs_path}"))
-     .arg(&out_path)
-     .output()
-     .unwrap();
+
+    #[cfg(target_os = "windows")]
+    Command::new("xcopy")
+        .arg("/S")
+        .arg(format!("{dir}\\{bindgen_rs_path}"))
+        .arg(&out_path)
+        .output()
+        .unwrap();
+    
     let full_src_path = Path::new(dir).join(bindgen_rs_path);
     copy_with_cp(full_src_path, &out_path).unwrap();
 

@@ -76,30 +76,30 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> 
 /// propagate into OUT_DIR. If not present, when trying to rewrite a file, a `Permission denied`
 /// error will occur.
 fn copy_with_cp(from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> {
-    let mut command = Command::new("cp");
-    // --no-preserve is enabled by default on macos
-    // preserve must be explicitly enabled with the -p flag
-    #[cfg(not(target_os = "linux"))]
-    let command = command.arg("--no-preserve=mode,ownership");
-    // https://github.com/milen-denev/rust_cp/blob/master/binary/cp.exe
-    #[cfg(target_os = "windows")]
-    let command = command.arg("-- --no-preserve=mode,ownership");
-    
-    match command
-        .arg("-R")
-        .arg(src.as_ref().to_str().unwrap())
-        .arg(dst.as_ref().to_str().unwrap())
-        .status()?;
+    #[cfg(not(target_os = "windows"))]
+    {
+        let mut command = Command::new("cp");
+        #[cfg(not(target_os = "macos"))]
+        let command = command.arg("--no-preserve=mode,ownership");
+        if command
+            .arg("-R")
+            .arg(from.as_ref().to_str().unwrap())
+            .arg(to.as_ref().to_str().unwrap())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+        {
+            return Ok(());
+        }
+    }
 
-    if !status.success() {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "Failed to copy using cp",
-        ))
-    } else {
-        Ok(())
+    match fs::copy(from.as_ref(), to.as_ref()) {
+        Err(err) if err.kind() == io::ErrorKind::InvalidInput => copy_dir_all(from, to),
+        Ok(_) => Ok(()),
+        Err(err) => Err(err),
     }
 }
+
 
 fn make_amalgamation() {
     let flags = ["-DSQLITE_ENABLE_COLUMN_METADATA=1"];
